@@ -83,3 +83,13 @@ def get_model(config_data, vocab):
     Return the LSTM model
     '''
     return CNN_LSTM(config_data, vocab)
+
+
+def check_cuda():
+    '''
+    Check if cuda is available
+    '''
+    print('CUDA is ready for PyTorch:', torch.cuda.is_available())
+    print('Number of devices:', torch.cuda.device_count())
+    print('Index of device:', torch.cuda.current_device())
+    print('Device Name:', torch.cuda.get_device_name(0))

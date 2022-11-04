@@ -19,7 +19,7 @@ import caption_utils
 ROOT_STATS_DIR = './experiment_data'
 from dataset_factory import get_datasets
 from file_utils import *
-from model_factory import get_model
+from model_factory import *
 
 
 # Class to encapsulate a neural experiment.
@@ -35,10 +35,10 @@ class Experiment(object):
         self.__name = config_data['experiment_name']
         self.__experiment_dir = os.path.join(ROOT_STATS_DIR, self.__name)
 
-        # Load Datasets
+        ''' Load Datasets '''
         self.__coco, self.__coco_test, self.__vocab, self.__train_loader, self.__val_loader, self.__test_loader = get_datasets(config_data)
 
-        # Setup Experiment
+        ''' Setup Experiment '''
         self.__epochs = config_data['experiment']['num_epochs']
         self.__current_epoch = 0
         self.__training_losses = []
@@ -47,27 +47,30 @@ class Experiment(object):
         self.__patience = config_data['experiment']['patience']
         self.__batch_size = config_data['dataset']['batch_size']
 
-        # Init Model
+        ''' Check cuda availability'''
+        check_cuda()
+
+        ''' Init Model '''
         self.__model = get_model(config_data, self.__vocab)
         self.__best_model = deepcopy(self.__model.state_dict())
 
-        # criterion
+        ''' criterion '''
         self.__criterion = None  # TODO
 
-        # optimizer
+        ''' optimizer '''
         # TODO
 
-        # LR Scheduler
+        ''' LR Scheduler '''
         # TODO
 
         self.__init_model()
 
-        # Load Experiment Data if available
+        ''' Load Experiment Data if available '''
         self.__load_experiment()
 
         raise NotImplementedError()
 
-    # Loads the experiment data if exists to resume training from last saved checkpoint.
+    ''' Loads the experiment data if exists to resume training from last saved checkpoint. '''
     def __load_experiment(self):
         os.makedirs(ROOT_STATS_DIR, exist_ok=True)
 
@@ -87,7 +90,7 @@ class Experiment(object):
             self.__model = self.__model.cuda().float()
             self.__criterion = self.__criterion.cuda()
 
-    # Main method to run your experiment. Should be self-explanatory.
+    ''' Main method to run your experiment. Should be self-explanatory. '''
     def run(self):
         start_epoch = self.__current_epoch
         patience_count = 0

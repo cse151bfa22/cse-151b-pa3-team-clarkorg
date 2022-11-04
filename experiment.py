@@ -36,8 +36,7 @@ class Experiment(object):
         self.__experiment_dir = os.path.join(ROOT_STATS_DIR, self.__name)
 
         # Load Datasets
-        self.__coco, self.__coco_test, self.__vocab, self.__train_loader, self.__val_loader, self.__test_loader = get_datasets(
-            config_data)
+        self.__coco, self.__coco_test, self.__vocab, self.__train_loader, self.__val_loader, self.__test_loader = get_datasets(config_data)
 
         # Setup Experiment
         self.__epochs = config_data['experiment']['num_epochs']

@@ -47,9 +47,6 @@ class Experiment(object):
         self.__patience = config_data['experiment']['patience']
         self.__batch_size = config_data['dataset']['batch_size']
 
-        ''' Check cuda availability'''
-        check_cuda()
-
         ''' Init Model '''
         self.__model = get_model(config_data, self.__vocab)
         self.__best_model = deepcopy(self.__model.state_dict())

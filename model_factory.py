@@ -25,8 +25,36 @@ class CustomCNN(nn.Module):
                        should map its input to
         '''
         super(CustomCNN, self).__init__()
-        # TODO
-        raise NotImplementedError()
+        ''' Functions '''
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2)
+        self.relu = nn.ReLU()
+        self.avgpool = nn.AdaptiveAvgPool2d(output_size=1)
+        self.flatten = nn.Flatten()
+
+        ''' Layer 1 '''
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=64, kernel_size=11, stride=4)
+        self.bn1 = nn.BatchNorm2d(num_features=64)
+
+        ''' Layer 2 '''
+        self.conv2 = nn.Conv2d(in_channels=64, out_channels=128, kernel_size=5, padding=2)
+        self.bn2 = nn.BatchNorm2d(num_features=128)
+
+        ''' Layer 3 '''
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm2d(num_features=256)
+
+        ''' Layer 4 '''
+        self.conv4 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1)
+        self.bn4 = nn.BatchNorm2d(num_features=256)
+
+        ''' Layer 5 '''
+        self.conv5 = nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3, padding=1)
+        self.bn5 = nn.BatchNorm2d(num_features=128)
+
+        ''' Fully Connected Layers '''
+        self.fc1 = nn.Linear(128, 1024)
+        self.fc2 = nn.Linear(1024, 1024)
+        self.fc3 = nn.Linear(1024, outputs)
 
     def forward(self, x):
         '''
@@ -36,8 +64,37 @@ class CustomCNN(nn.Module):
         Parameters:
             x => Input to the CNN
         '''
-        # TODO
-        raise NotImplementedError()
+        ''' Input: (64, 3, 256, 256) '''
+
+        ''' Layer 1: (64, 64, 30, 30) '''
+        out = self.relu(self.bn1(self.conv1(x)))
+        out = self.maxpool(out)
+
+        ''' Layer 2: (64, 128, 14, 14) '''
+        out = self.relu(self.bn2(self.conv2(out)))
+        out = self.maxpool(out)
+
+        ''' Layer 3: (64, 256, 14, 14) '''
+        out = self.relu(self.bn3(self.conv3(out)))
+
+        ''' Layer 4: (64, 256, 14, 14) '''
+        out = self.relu(self.bn4(self.conv4(out)))
+
+        ''' Layer 5: (64, 128, 6, 6) '''
+        out = self.relu(self.bn5(self.conv5(out)))
+        out = self.maxpool(out)
+
+        ''' Flatten: (64, 128) '''
+        out = self.avgpool(out)
+        out = self.flatten(out)
+
+        ''' FC: (64, 128) -> (64, 1024) -> (64, 1024) -> (64, output)'''
+        out = self.fc1(out)
+        out = self.fc2(out)
+        out = self.fc3(out)
+
+        return out
+
 
 
 class CNN_LSTM(nn.Module):
@@ -82,4 +139,5 @@ def get_model(config_data, vocab):
     '''
     Return the LSTM model
     '''
-    return CNN_LSTM(config_data, vocab)
+    # return CNN_LSTM(config_data, vocab)
+    return CustomCNN(100)

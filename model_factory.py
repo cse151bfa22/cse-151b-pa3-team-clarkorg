@@ -88,7 +88,7 @@ class CustomCNN(nn.Module):
         out = self.avgpool(out)
         out = self.flatten(out)
 
-        ''' FC: (64, 128) -> (64, 1024) -> (64, 1024) -> (64, output)'''
+        ''' FC: (64, 128) -> (64, 1024) -> (64, 1024) -> (64, output) '''
         out = self.fc1(out)
         out = self.fc2(out)
         out = self.fc3(out)

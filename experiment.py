@@ -35,7 +35,13 @@ class Experiment(object):
         self.__name = config_data['experiment_name']
         self.__experiment_dir = os.path.join(ROOT_STATS_DIR, self.__name)
 
-        ''' Load Datasets '''
+        ''' Load Datasets
+            For train, val, and test loaders, they consist of:
+                X(batch_size, 3(RGB), img_dim, img_dim),
+                y(batch_size, 22(maximum length 20 with <start> and <end>)),
+                idx(sample indices);
+            Word indices are stored in vocab (word2idx and idx2word dicts).
+        '''
         self.__coco, self.__coco_test, self.__vocab, self.__train_loader, self.__val_loader, self.__test_loader = get_datasets(config_data)
 
         ''' Setup Experiment '''
@@ -54,16 +60,38 @@ class Experiment(object):
         ''' criterion '''
         self.__criterion = None  # TODO
 
+        import time
+        start = time.time()
+        i = 0
+        for X, y, idx in self.__train_loader:
+            self.__model(X)
+            if i > 500:
+                break
+            i += 1
+        end = time.time()
+        print(end - start)
+
+        self.__model = get_model(config_data, self.__vocab).cuda()
+        start = time.time()
+        i = 0
+        for X, y, idx in self.__train_loader:
+            self.__model(X.cuda())
+            if i > 500:
+                break
+            i += 1
+        end = time.time()
+        print(end - start)
+
         ''' optimizer '''
         # TODO
 
         ''' LR Scheduler '''
         # TODO
 
-        self.__init_model()
+        # self.__init_model()
 
         ''' Load Experiment Data if available '''
-        self.__load_experiment()
+        # self.__load_experiment()
 
         raise NotImplementedError()
 

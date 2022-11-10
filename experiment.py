@@ -38,7 +38,7 @@ class Experiment(object):
         ''' Load Datasets
             For train, val, and test loaders, they consist of:
                 X(batch_size, 3(RGB), img_dim, img_dim),
-                y(batch_size, maximum length),
+                y(batch_size, 22(maximum length 20 with <start> and <end>)),
                 idx(sample indices);
             Word indices are stored in vocab (word2idx and idx2word dicts).
         '''
@@ -54,11 +54,33 @@ class Experiment(object):
         self.__batch_size = config_data['dataset']['batch_size']
 
         ''' Init Model '''
-        self.__model = get_model(config_data, self.__vocab).cuda()
+        self.__model = get_model(config_data, self.__vocab)
         self.__best_model = deepcopy(self.__model.state_dict())
 
         ''' criterion '''
         self.__criterion = None  # TODO
+
+        import time
+        start = time.time()
+        i = 0
+        for X, y, idx in self.__train_loader:
+            self.__model(X)
+            if i > 500:
+                break
+            i += 1
+        end = time.time()
+        print(end - start)
+
+        self.__model = get_model(config_data, self.__vocab).cuda()
+        start = time.time()
+        i = 0
+        for X, y, idx in self.__train_loader:
+            self.__model(X.cuda())
+            if i > 500:
+                break
+            i += 1
+        end = time.time()
+        print(end - start)
 
         ''' optimizer '''
         # TODO
@@ -71,12 +93,7 @@ class Experiment(object):
         ''' Load Experiment Data if available '''
         # self.__load_experiment()
 
-        i = 0
-        for X, y, idx in self.__train_loader:
-            self.__model(X.cuda(), y.cuda(), teacher_forcing=True)
-            if i > 100:
-                break
-            i += 1
+        raise NotImplementedError()
 
     ''' Loads the experiment data if exists to resume training from last saved checkpoint. '''
     def __load_experiment(self):

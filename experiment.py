@@ -54,33 +54,11 @@ class Experiment(object):
         self.__batch_size = config_data['dataset']['batch_size']
 
         ''' Init Model '''
-        self.__model = get_model(config_data, self.__vocab)
+        self.__model = get_model(config_data, self.__vocab).cuda()
         self.__best_model = deepcopy(self.__model.state_dict())
 
         ''' criterion '''
         self.__criterion = None  # TODO
-
-        import time
-        start = time.time()
-        i = 0
-        for X, y, idx in self.__train_loader:
-            self.__model(X)
-            if i > 500:
-                break
-            i += 1
-        end = time.time()
-        print(end - start)
-
-        self.__model = get_model(config_data, self.__vocab).cuda()
-        start = time.time()
-        i = 0
-        for X, y, idx in self.__train_loader:
-            self.__model(X.cuda())
-            if i > 500:
-                break
-            i += 1
-        end = time.time()
-        print(end - start)
 
         ''' optimizer '''
         # TODO
@@ -93,7 +71,12 @@ class Experiment(object):
         ''' Load Experiment Data if available '''
         # self.__load_experiment()
 
-        raise NotImplementedError()
+        i = 0
+        for X, y, idx in self.__train_loader:
+            self.__model(X.cuda(), y.cuda(), teacher_forcing=True)
+            if i > 5:
+                break
+            i += 1
 
     ''' Loads the experiment data if exists to resume training from last saved checkpoint. '''
     def __load_experiment(self):

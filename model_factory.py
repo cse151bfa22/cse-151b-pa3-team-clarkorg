@@ -96,7 +96,6 @@ class CustomCNN(nn.Module):
         return out
 
 
-
 class CNN_LSTM(nn.Module):
     '''
     An encoder decoder architecture.
@@ -126,6 +125,17 @@ class CNN_LSTM(nn.Module):
         self.decoder = nn.LSTM(input_size=self.embedding_size, hidden_size=self.hidden_size, num_layers=2, batch_first=True)
         self.fc = nn.Linear(in_features=self.hidden_size, out_features=self.vocab.idx)
 
+    def retrive_word(self, out):
+        out = self.flatten(out)
+        out = self.fc(out)
+
+        if self.deterministic:
+            out = self.softmax(out)
+            out = torch.argmax(out, 1).view((-1, 1))
+        else:
+            out = self.softmax(out / self.temp)
+            out = torch.multinomial(out, 1)
+        return out
 
     def forward(self, images, captions, teacher_forcing=False):
         '''

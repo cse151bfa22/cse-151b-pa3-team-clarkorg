@@ -27,8 +27,8 @@ class CustomCNN(nn.Module):
         super(CustomCNN, self).__init__()
         ''' Functions '''
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2)
-        self.relu = nn.ReLU()
         self.avgpool = nn.AdaptiveAvgPool2d(output_size=1)
+        self.relu = nn.ReLU()
         self.flatten = nn.Flatten()
 
         ''' Layer 1 '''
@@ -52,9 +52,9 @@ class CustomCNN(nn.Module):
         self.bn5 = nn.BatchNorm2d(num_features=128)
 
         ''' Fully Connected Layers '''
-        self.fc1 = nn.Linear(128, 1024)
-        self.fc2 = nn.Linear(1024, 1024)
-        self.fc3 = nn.Linear(1024, outputs)
+        self.fc1 = nn.Linear(in_features=128, out_features=1024)
+        self.fc2 = nn.Linear(in_features=1024, out_features=1024)
+        self.fc3 = nn.Linear(in_features=1024, out_features=outputs)
 
     def forward(self, x):
         '''
@@ -96,7 +96,6 @@ class CustomCNN(nn.Module):
         return out
 
 
-
 class CNN_LSTM(nn.Module):
     '''
     An encoder decoder architecture.
@@ -116,9 +115,27 @@ class CNN_LSTM(nn.Module):
         self.deterministic = config_data['generation']['deterministic']
         self.temp = config_data['generation']['temperature']
 
-        # TODO
-        raise NotImplementedError()
+        ''' Functions '''
+        self.softmax = nn.Softmax()
+        self.flatten = nn.Flatten()
 
+        ''' Models '''
+        self.embedding = nn.Embedding(num_embeddings=self.vocab.idx, embedding_dim=self.embedding_size, padding_idx=0)
+        self.encoder = CustomCNN(self.embedding_size)
+        self.decoder = nn.LSTM(input_size=self.embedding_size, hidden_size=self.hidden_size, num_layers=2, batch_first=True)
+        self.fc = nn.Linear(in_features=self.hidden_size, out_features=self.vocab.idx)
+
+    def retrive_word(self, out):
+        out = self.flatten(out)
+        out = self.fc(out)
+
+        if self.deterministic:
+            out = self.softmax(out)
+            out = torch.argmax(out, 1).view((-1, 1))
+        else:
+            out = self.softmax(out/self.temp)
+            out = torch.multinomial(out, 1)
+        return out
 
     def forward(self, images, captions, teacher_forcing=False):
         '''
@@ -132,12 +149,35 @@ class CNN_LSTM(nn.Module):
             - Generate predicted caption from the output based on whether we are generating them deterministically or not.
         '''
         # TODO
-        raise NotImplementedError()
+        batch_size, _, _, _ = images.size()
+
+        if teacher_forcing:
+            _, length = captions.size()
+
+            if length < self.max_length:
+                zeros = torch.zeros((batch_size, self.max_length - length), dtype=torch.long).cuda()
+                captions = torch.cat((captions, zeros), 1)
+
+        input = self.encoder(images).view(-1, 1, self.embedding_size)
+        out = torch.zeros((batch_size, 0)).cuda()
+        h0 = torch.zeros(2, batch_size, self.hidden_size).cuda()
+        c0 = torch.zeros(2, batch_size, self.hidden_size).cuda()
+        hidden_states = (h0, c0)
+
+        for i in range(self.max_length):
+            out_word, hidden_states = self.decoder(input, hidden_states)
+            out_word = self.retrive_word(out_word)
+            out = torch.cat((out, out_word), 1)
+            if teacher_forcing:
+                input = self.embedding(captions[:, i].view(-1, 1))
+            else:
+                input = self.embedding(out_word)
+
+        return out
 
 
 def get_model(config_data, vocab):
     '''
     Return the LSTM model
     '''
-    # return CNN_LSTM(config_data, vocab)
-    return CustomCNN(100)
+    return CNN_LSTM(config_data, vocab)

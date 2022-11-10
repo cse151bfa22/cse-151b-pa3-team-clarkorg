@@ -125,17 +125,23 @@ class CNN_LSTM(nn.Module):
         self.decoder = nn.LSTM(input_size=self.embedding_size, hidden_size=self.hidden_size, num_layers=2, batch_first=True)
         self.fc = nn.Linear(in_features=self.hidden_size, out_features=self.vocab.idx)
 
-    def retrive_word(self, out):
-        out = self.flatten(out)
-        out = self.fc(out)
+    def retrive_caption(self, raw_out):
+        batch_size, length, _ = raw_out.size()
+        caption_out = torch.zeros((0, length)).cuda()
 
-        if self.deterministic:
-            out = self.softmax(out)
-            out = torch.argmax(out, 1).view((-1, 1))
-        else:
-            out = self.softmax(out / self.temp)
-            out = torch.multinomial(out, 1)
-        return out
+        for i in range(batch_size):
+            if self.deterministic:
+                pass
+                softmax_out = self.softmax(raw_out[i])
+                word_out = torch.argmax(softmax_out, 1)
+            else:
+                softmax_out = self.softmax(raw_out[i] / self.temp)
+                word_out = torch.multinomial(softmax_out, 1)
+
+            word_out = word_out.view((1, -1))
+            caption_out = torch.cat((caption_out, word_out), 0)
+
+        return caption_out
 
     def forward(self, images, captions, teacher_forcing=False):
         '''
@@ -148,7 +154,6 @@ class CNN_LSTM(nn.Module):
             - Pass output from previous time step through the LSTM at subsequent time steps
             - Generate predicted caption from the output based on whether we are generating them deterministically or not.
         '''
-        # TODO
         batch_size, _, _, _ = images.size()
 
         if teacher_forcing:
@@ -159,19 +164,21 @@ class CNN_LSTM(nn.Module):
                 captions = torch.cat((captions, zeros), 1)
 
         input = self.encoder(images).view(-1, 1, self.embedding_size)
-        out = torch.zeros((batch_size, 0)).cuda()
+        out = torch.zeros((batch_size, 0, self.vocab.idx)).cuda()
         h0 = torch.zeros(2, batch_size, self.hidden_size).cuda()
         c0 = torch.zeros(2, batch_size, self.hidden_size).cuda()
         hidden_states = (h0, c0)
 
         for i in range(self.max_length):
-            out_word, hidden_states = self.decoder(input, hidden_states)
-            out_word = self.retrive_word(out_word)
-            out = torch.cat((out, out_word), 1)
+            hidden_out, hidden_states = self.decoder(input, hidden_states)
+            raw_out = self.fc(self.flatten(hidden_out)).view((batch_size, 1, self.vocab.idx))
+            out = torch.cat((out, raw_out), 1)
+            caption_out = self.retrive_caption(raw_out)
+
             if teacher_forcing:
                 input = self.embedding(captions[:, i].view(-1, 1))
             else:
-                input = self.embedding(out_word)
+                input = self.embedding(caption_out)
 
         return out
 

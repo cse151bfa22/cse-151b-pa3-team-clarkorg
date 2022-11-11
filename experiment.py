@@ -54,29 +54,34 @@ class Experiment(object):
         self.__batch_size = config_data['dataset']['batch_size']
 
         ''' Init Model '''
-        self.__model = get_model(config_data, self.__vocab).cuda()
+        self.__model = get_model(config_data, self.__vocab)
         self.__best_model = deepcopy(self.__model.state_dict())
 
         ''' criterion '''
-        self.__criterion = None  # TODO
+        self.__criterion = nn.CrossEntropyLoss()
 
         ''' optimizer '''
-        # TODO
+        self.__learning_rate, self.weight_decay = config_data['experiment']['learning_rate'], config_data['experiment']['weight_decay']
+
+        if config_data['experiment']['optimizer'] == 'Adam':
+            self.__optimizer = torch.optim.Adam(self.__model.parameters(),
+                                        lr=self.__learning_rate,
+                                        weight_decay=self.weight_decay)
+        elif config_data['experiment']['optimizer'] == 'SGD':
+            self.__optimizer = torch.optim.SGD(self.__model.parameters(),
+                                        lr=self.__learning_rate,
+                                        weight_decay=self.weight_decay)
+        else:
+            raise Exception()
 
         ''' LR Scheduler '''
-        # TODO
+        self.__lr_scheduler = None
 
-        # self.__init_model()
-
+        self.__init_model()
         ''' Load Experiment Data if available '''
-        # self.__load_experiment()
+        self.__load_experiment()
 
-        i = 0
-        for X, y, idx in self.__train_loader:
-            self.__model(X.cuda(), y.cuda(), teacher_forcing=True)
-            if i > 5:
-                break
-            i += 1
+
 
     ''' Loads the experiment data if exists to resume training from last saved checkpoint. '''
     def __load_experiment(self):
@@ -139,15 +144,33 @@ class Experiment(object):
         """
         Computes the loss after a forward pass through the model
         """
-        # TODO
-        raise NotImplementedError()
+        out, captions = self.__model(images, captions)
+        captions_one_hot = F.one_hot(captions, self.__vocab.idx).float()
+
+        batch_size, _, _ = out.size()
+        loss = 0
+        for i in range(batch_size):
+            loss += self.__criterion(out[i], captions_one_hot[i])
+
+        return loss
 
     def __train(self):
         """
         Trains the model for one epoch using teacher forcing and minibatch stochastic gradient descent
         """
-        # TODO
-        raise NotImplementedError()
+        total_loss = 0
+        num_batchs = 0
+        for images, captions, idx in tqdm(self.__train_loader):
+            self.__optimizer.zero_grad()
+            loss = self.__compute_loss(images.cuda(), captions.cuda())
+            loss.backward()
+            self.__optimizer.step()
+
+            with torch.no_grad():
+                total_loss += loss
+                num_batchs += 1
+
+        return total_loss.tolist() / num_batchs
 
     def __generate_captions(self, img_id, outputs, testing):
         """
@@ -175,8 +198,17 @@ class Experiment(object):
         """
         Validate the model for one epoch using teacher forcing
         """
-        # TODO
-        raise NotImplementedError()
+        with torch.no_grad():
+
+            total_loss = 0
+            num_batchs = 0
+            for images, captions, idx in tqdm(self.__val_loader):
+                loss = self.__compute_loss(images.cuda(), captions.cuda())
+                total_loss += loss
+                num_batchs += 1
+
+        return total_loss.tolist() / num_batchs
+
 
     def test(self):
         """
@@ -226,4 +258,4 @@ class Experiment(object):
         plt.legend(loc='best')
         plt.title(self.__name + " Stats Plot")
         plt.savefig(os.path.join(self.__experiment_dir, "stat_plot.png"))
-        plt.show()
+        # plt.show()

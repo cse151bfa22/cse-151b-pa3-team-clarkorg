@@ -116,7 +116,7 @@ class CNN_LSTM(nn.Module):
         self.temp = config_data['generation']['temperature']
 
         ''' Functions '''
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=1)
         self.flatten = nn.Flatten()
 
         ''' Models '''
@@ -127,7 +127,7 @@ class CNN_LSTM(nn.Module):
 
     def retrive_caption(self, raw_out):
         batch_size, length, _ = raw_out.size()
-        caption_out = torch.zeros((0, length)).cuda()
+        caption_out = torch.zeros((0, length), dtype=torch.long).cuda()
 
         for i in range(batch_size):
             if self.deterministic:
@@ -156,7 +156,7 @@ class CNN_LSTM(nn.Module):
         '''
         batch_size, _, _, _ = images.size()
 
-        if teacher_forcing:
+        if captions is not None:
             _, length = captions.size()
 
             if length < self.max_length:
@@ -180,7 +180,7 @@ class CNN_LSTM(nn.Module):
             else:
                 input = self.embedding(caption_out)
 
-        return out
+        return out, captions[:, :20]
 
 
 def get_model(config_data, vocab):

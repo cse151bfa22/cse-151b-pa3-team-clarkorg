@@ -27,7 +27,7 @@ if __name__ == "__main__":
     check_cuda()
 
     ''' Experiment '''
-    exp_name = 'task-1-default-config'
+    exp_name = 'task-2-config'
 
     if len(sys.argv) > 1:
         exp_name = sys.argv[1]

@@ -5,7 +5,7 @@
 # Fall 2022
 ################################################################################
 import torch
-from torchvision.models import resnet50
+from torchvision.models import resnet50, ResNet50_Weights
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -120,8 +120,13 @@ class CNN_LSTM(nn.Module):
         self.flatten = nn.Flatten()
 
         ''' Models '''
+        if self.model_type == 'Custom':
+            self.encoder = CustomCNN(self.embedding_size)
+        elif self.model_type == 'Resnet':
+            self.encoder = resnet50(weights=ResNet50_Weights.DEFAULT)
+            self.encoder.fc = nn.Linear(in_features=512*4, out_features=self.embedding_size)
+
         self.embedding = nn.Embedding(num_embeddings=self.vocab.idx, embedding_dim=self.embedding_size, padding_idx=0)
-        self.encoder = CustomCNN(self.embedding_size)
         self.decoder = nn.LSTM(input_size=self.embedding_size, hidden_size=self.hidden_size, num_layers=2, batch_first=True)
         self.fc = nn.Linear(in_features=self.hidden_size, out_features=self.vocab.idx)
 

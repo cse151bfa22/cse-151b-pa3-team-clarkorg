@@ -2,15 +2,15 @@
 
 
 ## Contributors
-<TODO>
+Bruce Zhou, Qiyun Li, Jiamin Yuan
 
 
 ## Task
-<TODO>
+Given images, predict the captions according to images' features using CNN and LSTM.
 
 
 ## How to run
-<TODO>
+Simply run the `main.py` file. Change the `exp_name` in `main.py` file to specify the task to run.
 
 
 ## Usage

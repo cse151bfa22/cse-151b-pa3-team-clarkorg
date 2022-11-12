@@ -15,6 +15,7 @@ from tqdm import tqdm
 from copy import deepcopy
 from nltk.tokenize import word_tokenize
 import caption_utils
+from torch.optim.lr_scheduler import StepLR
 
 ROOT_STATS_DIR = './experiment_data'
 from dataset_factory import get_datasets
@@ -75,7 +76,10 @@ class Experiment(object):
             raise Exception()
 
         ''' LR Scheduler '''
-        self.__lr_scheduler = None
+        if (config_data['experiment']['learning_rate'] == 'steplr'):
+            self.__lr_scheduler = StepLR(self.__optimizer, self.__epochs // 3, gamma=0.1)
+        elif (config_data['experiment']['learning_rate'] == 'none'):
+            self.__lr_scheduler = None
 
         self.__init_model()
         ''' Load Experiment Data if available '''
@@ -144,13 +148,12 @@ class Experiment(object):
         """
         Computes the loss after a forward pass through the model
         """
-        out, captions = self.__model(images, captions)
-        captions_one_hot = F.one_hot(captions, self.__vocab.idx).float()
-
-        batch_size, _, _ = out.size()
+        out, captions = self.__model(images, captions, teacher_forcing=True)
+        N, L, C = out.size()
         loss = 0
-        for i in range(batch_size):
-            loss += self.__criterion(out[i], captions_one_hot[i])
+
+        for i in range(L):
+            loss += self.__criterion(out[:, i], captions[:, i])
 
         return loss
 
@@ -183,7 +186,22 @@ class Experiment(object):
             tuple (list of original captions, predicted caption)
         """
         # TODO
-        raise NotImplementedError()
+        if testing:
+            dataset = self.__coco_test
+        else:
+            dataset = self.__coco
+
+        outputs_caption = self.__model.retrive_caption(outputs.view(1, -1, self.__vocab.idx))[0].tolist()
+
+        predicted_caption = []
+        for idx in outputs_caption:
+            if idx >= 3:
+                predicted_caption.append(idx)
+
+        predicted_caption = list(map(lambda idx: self.__vocab.idx2word[idx], predicted_caption))
+        reference_captions = list(map(lambda img: word_tokenize(img['caption'].lower()), dataset.imgToAnns[img_id]))
+
+        return reference_captions, predicted_caption
 
     def __str_captions(self, img_id, original_captions, predicted_caption):
         """
@@ -207,6 +225,27 @@ class Experiment(object):
                 total_loss += loss
                 num_batchs += 1
 
+            for images, captions, indices in self.__val_loader:
+                out, _ = self.__model(images.cuda(), captions.cuda())
+
+                for i, index in enumerate(indices):
+                    reference_captions, predicted_caption = self.__generate_captions(index, out[i], False)
+
+                    print('Reference captions:')
+                    for caption in reference_captions:
+                        print(caption)
+
+                    print('-------------------')
+                    print('Predicted captions:')
+                    print(predicted_caption)
+
+                    print('-------------------')
+                    bleu4 = caption_utils.bleu4(reference_captions, predicted_caption)
+                    bleu1 = caption_utils.bleu1(reference_captions, predicted_caption)
+                    print(bleu4, bleu1)
+                    break
+                break
+
         return total_loss.tolist() / num_batchs
 
 
@@ -215,7 +254,50 @@ class Experiment(object):
         Test the best model on test data. Generate captions and calculate bleu scores
         """
         # TODO
-        raise NotImplementedError()
+        bleu4, bleu1, count = 0, 0, 0
+        for images, captions, indices in tqdm(self.__test_loader):
+            out, _ = self.__model(images.cuda(), captions.cuda(), teacher_forcing=True)
+
+            for i, index in enumerate(indices):
+                reference_captions, predicted_caption = self.__generate_captions(index, out[i], True)
+                bleu4 += caption_utils.bleu4(reference_captions, predicted_caption)
+                bleu1 += caption_utils.bleu1(reference_captions, predicted_caption)
+                count += 1
+
+        print(bleu4 / count, bleu1 / count)
+
+    def writeCaptionsToFile(self, limit):
+        bleu1 = 0
+        f = open('captionComparation.csv', 'w')
+        curr = 0
+        for images, captions, indices in tqdm(self.__test_loader):
+            out, _ = self.__model(images.cuda(), captions.cuda(), teacher_forcing=False)
+
+            for i, index in enumerate(indices):
+                if (curr >= limit): 
+                    f.close()
+                    return
+                reference_captions, predicted_caption = self.__generate_captions(index, out[i], True)
+                bleu1 += caption_utils.bleu1(reference_captions, predicted_caption)
+                if (True):
+                    f.write(str([' '.join(r) for r in reference_captions]).replace(",", ";") + ',' +  ' '.join(predicted_caption) + ',' +  str(index) + '\n')
+                    curr += 1
+        f.close()
+
+    def findCaptionsByID(self, img_ids):
+        f = open('captionsFound.csv', 'w')
+        for images, captions, indices in tqdm(self.__test_loader):
+            if (img_ids == []): 
+                f.close()
+                return
+            out, _ = self.__model(images.cuda(), captions.cuda(), teacher_forcing=False)
+            for i, index in enumerate(indices):
+                if (index in img_ids):
+                    reference_captions, predicted_caption = self.__generate_captions(index, out[i], True)
+                    f.write(str([' '.join(r) for r in reference_captions]).replace(",", ";") + ',' +  ' '.join(predicted_caption) + ',' +  str(index) + '\n')
+                    img_ids.remove(index)
+        f.close()
+
 
     def __save_model(self):
         root_model_path = os.path.join(self.__experiment_dir, 'latest_model.pt')

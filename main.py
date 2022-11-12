@@ -27,12 +27,13 @@ if __name__ == "__main__":
     check_cuda()
 
     ''' Experiment '''
-    exp_name = 'task-2-config'
+    exp_name = 'task-1.3.5-config'
 
-    if len(sys.argv) > 1:
-        exp_name = sys.argv[1]
+    # if len(sys.argv) > 1:
+    #     exp_name = sys.argv[1]
 
     print("Running Experiment: ", exp_name)
     exp = Experiment(exp_name)
     exp.run()
     exp.test()
+    

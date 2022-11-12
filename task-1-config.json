@@ -13,7 +13,7 @@
     "num_workers": 4
   },
   "experiment": {
-    "num_epochs": 10,
+    "num_epochs": 12,
     "learning_rate": 5e-4,
     "optimizer": "Adam",
     "weight_decay": 1e-4,
@@ -29,7 +29,7 @@
   },
   "generation": {
     "max_length": 20,
-    "deterministic": true,
+    "deterministic": false,
     "temperature": 0.4
   }
 }

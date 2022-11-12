@@ -29,7 +29,7 @@
   },
   "generation": {
     "max_length": 20,
-    "deterministic": true,
+    "deterministic": false,
     "temperature": 0.4
   }
 }

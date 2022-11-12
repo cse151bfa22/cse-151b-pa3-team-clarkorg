@@ -89,8 +89,8 @@ class CustomCNN(nn.Module):
         out = self.flatten(out)
 
         ''' FC: (64, 128) -> (64, 1024) -> (64, 1024) -> (64, output) '''
-        out = self.fc1(out)
-        out = self.fc2(out)
+        out = self.relu(self.fc1(out))
+        out = self.relu(self.fc2(out))
         out = self.fc3(out)
 
         return out
@@ -167,7 +167,6 @@ class CNN_LSTM(nn.Module):
             if length < self.max_length:
                 zeros = torch.zeros((batch_size, self.max_length - length), dtype=torch.long).cuda()
                 captions = torch.cat((captions, zeros), 1)
-
         input = self.encoder(images).view(-1, 1, self.embedding_size)
         out = torch.zeros((batch_size, 0, self.vocab.idx)).cuda()
         h0 = torch.zeros(2, batch_size, self.hidden_size).cuda()

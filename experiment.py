@@ -6,6 +6,7 @@
 ################################################################################
 
 import random
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -76,9 +77,9 @@ class Experiment(object):
             raise Exception()
 
         ''' LR Scheduler '''
-        if (config_data['experiment']['learning_rate'] == 'steplr'):
-            self.__lr_scheduler = StepLR(self.__optimizer, self.__epochs // 3, gamma=0.1)
-        elif (config_data['experiment']['learning_rate'] == 'none'):
+        if config_data['experiment']['lr_scheduler'] == 'steplr':
+            self.__lr_scheduler = StepLR(self.__optimizer, 1, gamma=0.95)
+        elif config_data['experiment']['lr_scheduler'] == 'none':
             self.__lr_scheduler = None
 
         self.__init_model()
@@ -254,47 +255,56 @@ class Experiment(object):
         Test the best model on test data. Generate captions and calculate bleu scores
         """
         # TODO
-        bleu4, bleu1, count = 0, 0, 0
+        bleu4, bleu1 = [], []
         for images, captions, indices in tqdm(self.__test_loader):
             out, _ = self.__model(images.cuda(), captions.cuda(), teacher_forcing=True)
 
             for i, index in enumerate(indices):
                 reference_captions, predicted_caption = self.__generate_captions(index, out[i], True)
-                bleu4 += caption_utils.bleu4(reference_captions, predicted_caption)
-                bleu1 += caption_utils.bleu1(reference_captions, predicted_caption)
-                count += 1
+                bleu4.append(caption_utils.bleu4(reference_captions, predicted_caption))
+                bleu1.append(caption_utils.bleu1(reference_captions, predicted_caption))
+        counts, bins = np.histogram(bleu1, bins=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+        plt.stairs(counts, bins, fill=True)
+        plt.xlabel("bleu1 score")
+        plt.ylabel("# of examples")
+        plt.savefig(self.__experiment_dir + '/bleu1_fig.png')
+        plt.clf()
+        counts, bins = np.histogram(bleu4, bins=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+        plt.stairs(counts, bins, fill=True)
+        plt.xlabel("bleu4 score")
+        plt.ylabel("# of examples")
+        plt.savefig(self.__experiment_dir + '/bleu4_fig.png')
+        plt.clf()
+        print((sum(bleu4) / len(bleu4)), (sum(bleu1) / len(bleu1)))
 
-        print(bleu4 / count, bleu1 / count)
-
-    def writeCaptionsToFile(self, limit):
-        bleu1 = 0
+    def writeCaptionsToFile(self, limit, threshold, finding_good):
         f = open('captionComparation.csv', 'w')
         curr = 0
         for images, captions, indices in tqdm(self.__test_loader):
             out, _ = self.__model(images.cuda(), captions.cuda(), teacher_forcing=False)
 
             for i, index in enumerate(indices):
-                if (curr >= limit): 
+                if curr >= limit:
                     f.close()
                     return
                 reference_captions, predicted_caption = self.__generate_captions(index, out[i], True)
-                bleu1 += caption_utils.bleu1(reference_captions, predicted_caption)
-                if (True):
-                    f.write(str([' '.join(r) for r in reference_captions]).replace(",", ";") + ',' +  ' '.join(predicted_caption) + ',' +  str(index) + '\n')
+                bleu1 = caption_utils.bleu1(reference_captions, predicted_caption)
+                if (bleu1 >= threshold and finding_good) or (bleu1 <= threshold and not finding_good):
+                    f.write(str([' '.join(r) for r in reference_captions]).replace(",", ";") + ',' +  ' '.join(predicted_caption) + ',' +  str(index) + ',' + str(bleu1) + '\n')
                     curr += 1
         f.close()
 
     def findCaptionsByID(self, img_ids):
         f = open('captionsFound.csv', 'w')
         for images, captions, indices in tqdm(self.__test_loader):
-            if (img_ids == []): 
+            if (img_ids == []):
                 f.close()
                 return
             out, _ = self.__model(images.cuda(), captions.cuda(), teacher_forcing=False)
             for i, index in enumerate(indices):
-                if (index in img_ids):
+                if index in img_ids:
                     reference_captions, predicted_caption = self.__generate_captions(index, out[i], True)
-                    f.write(str([' '.join(r) for r in reference_captions]).replace(",", ";") + ',' +  ' '.join(predicted_caption) + ',' +  str(index) + '\n')
+                    f.write(str([' '.join(r) for r in reference_captions]).replace(",", ";") + ',' + ' '.join(predicted_caption) + ',' + str(index) + '\n')
                     img_ids.remove(index)
         f.close()
 

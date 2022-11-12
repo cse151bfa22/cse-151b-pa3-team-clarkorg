@@ -16,7 +16,6 @@ from pycocotools.coco import COCO
 
 nltk.download('punkt')
 
-
 class CocoDataset(data.Dataset):
     """COCO Custom Dataset compatible with torch.utils.data.DataLoader."""
 
